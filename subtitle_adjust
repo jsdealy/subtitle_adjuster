@@ -9,35 +9,6 @@ use warnings;
 my $minutes = undef;
 my $seconds = undef;
 
-while (($_ = shift @ARGV) =~ m|^--?[a-zA-Z]+|) {
-    if (m/^-h$/ || m/^--help$/i) {
-	print qq|USAGE:\t[FLAGS [-msh]] [+-OFFSET_IN_SECS] SUBTITLEFILE\n|;
-	print "\t-s (--seconds)\tSet the seconds. (Use if also setting minutes.)\n";
-	print "\t-m (--minutes)\tSet the minutes.\n";
-	exit 0;
-    }
-    elsif (m/^-m$/ || m/^--minutes?(=(\d+))?$/i) {
-	if (defined $2) { $minutes = $2; }
-	else { $minutes = shift @ARGV; }
-	die "Missing or bad minutes\n\t" if not defined($minutes) or $minutes !~ m/^[1-9]\d+$/
-    }
-    elsif (m/^-s$/ || m/^--seconds?(=(\d+))?$/i) {
-	if (defined $2) { $seconds = $2; }
-	else { $seconds = shift @ARGV; }
-	die "Missing or bad seconds\n\t" if not defined($seconds) or $seconds !~ m/^[1-9]\d+$/
-    }
-    else {
-	die "Error: unknown option `$_`\n\t";
-    }
-}
-
-if (not defined $minutes and not defined $seconds) {
-    die "Error: no or bad offset\n\t" if not defined $_ or $_ !~ m|^[+-]?\d+$|;
-    $seconds = $_;
-}
-
-die "Error: 60+ seconds. Use minutes...\n\t" if (defined $seconds and abs($seconds) > 59);
-
 sub check_for_wraparound_pass_ref ($n_ref) {
     if ($$n_ref < 0) {
 	$$n_ref = 60 + $$n_ref;
@@ -49,6 +20,41 @@ sub check_for_wraparound_pass_ref ($n_ref) {
     }
     return 0;
 }
+
+while (($_ = shift @ARGV) =~ m|^--?[a-zA-Z]+|) {
+    if (m/^-h$/ || m/^--help$/i) {
+	print qq|USAGE:\t[FLAGS [-msh]] [+-OFFSET_IN_SECS] SUBTITLEFILE\n|;
+	print "\t-s (--seconds)\tSet the seconds offset (+-). (Use if also setting minutes.)\n";
+	print "\t-m (--minutes)\tSet the minutes offset (+-).\n";
+	print "NOTE: No need to use flags if the offset is in seconds.\n";
+	exit 0;
+    }
+    elsif (m/^-m$/ || m/^--minutes?(=(\d+))?$/i) {
+	if (defined $2) { $minutes = $2; }
+	else { $minutes = shift @ARGV; }
+	die "Missing or bad minutes\n\t" if not defined($minutes) or $minutes !~ m/^[+-]?[1-9]\d*$/
+    }
+    elsif (m/^-s$/ || m/^--seconds?(=(\d+))?$/i) {
+	if (defined $2) { $seconds = $2; }
+	else { $seconds = shift @ARGV; }
+	die "Missing or bad seconds\n\t" if not defined($seconds) or $seconds !~ m/^[+-]?[1-9]\d*$/
+    }
+    else {
+	die "Error: unknown option `$_`\n\t";
+    }
+}
+
+if (not defined $minutes and not defined $seconds) {
+    die "Error: no or bad offset\n\t" if not defined $_ or $_ !~ m|^[+-]?\d+$|;
+    $seconds = $_;
+}
+else {
+    unshift @ARGV, $_;
+}
+
+die "Error: 60+ seconds. Use minutes...\n\t" if (defined $seconds and abs($seconds) > 59);
+die "Error: 60+ minutes. Wtf...\n\t" if (defined $minutes and abs($minutes) > 59);
+
 
 while(<>) {
     if (defined and m[^(\d\d):(\d\d):(\d\d),\d*\s+-->\s+(\d{2}):(\d{2}):(\d{2}),\d*\s*$]) {
