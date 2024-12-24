@@ -77,7 +77,7 @@ while(<>) {
 
 	$_ =~ s|^\d\d:\d\d:\d\d(,\d*\s+-->\s+)\d{2}:\d{2}:\d{2}(,\d*\s*)$|$first_h:$first_m:$first_s$1$second_h:$second_m:$second_s$2|;
 	$_ =~ s|:(\d)([:,])|:0$1$2|g;
-	$_ =~ s|^(\d)([:,])|0$1$2|;
+	$_ =~ s|^(\d):|0$1:|;
 	print $_;
     }
     else {
