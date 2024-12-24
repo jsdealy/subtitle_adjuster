@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+# a program to adjust subtitle timing in .srt files <== 12/23/24 19:50:42 # 
+use feature qw(signatures);
+no warnings qw(experimental::signatures);
+use feature 'state';
+use strict;
+use warnings;
+
+my $minutes = undef;
+my $seconds = undef;
+
+while (($_ = shift @ARGV) =~ m|^--?[a-zA-Z]+|) {
+    if (m/^-h$/ || m/^--help$/i) {
+	print qq|USAGE:\t[FLAGS [-msh]] [+-OFFSET_IN_SECS] SUBTITLEFILE\n|;
+	print "\t-s (--seconds)\tSet the seconds. (Use if also setting minutes.)\n";
+	print "\t-m (--minutes)\tSet the minutes.\n";
+	exit 0;
+    }
+    elsif (m/^-m$/ || m/^--minutes?(=(\d+))?$/i) {
+	if (defined $2) { $minutes = $2; }
+	else { $minutes = shift @ARGV; }
+	die "Missing or bad minutes\n\t" if not defined($minutes) or $minutes !~ m/^[1-9]\d+$/
+    }
+    elsif (m/^-s$/ || m/^--seconds?(=(\d+))?$/i) {
+	if (defined $2) { $seconds = $2; }
+	else { $seconds = shift @ARGV; }
+	die "Missing or bad seconds\n\t" if not defined($seconds) or $seconds !~ m/^[1-9]\d+$/
+    }
+    else {
+	die "Error: unknown option `$_`\n\t";
+    }
+}
+
+if (not defined $minutes and not defined $seconds) {
+    die "Error: no or bad offset\n\t" if not defined $_ or $_ !~ m|^[+-]?\d+$|;
+    $seconds = $_;
+}
+
+die "Error: 60+ seconds. Use minutes...\n\t" if (defined $seconds and abs($seconds) > 59);
+
+sub check_for_wraparound_pass_ref ($n_ref) {
+    if ($$n_ref < 0) {
+	$$n_ref = 60 + $$n_ref;
+	return -1;
+    }
+    elsif ($$n_ref > 59) {
+	$$n_ref = $$n_ref - 60;
+	return 1;
+    }
+    return 0;
+}
+
+while(<>) {
+    if (defined and m[^(\d\d):(\d\d):(\d\d),\d*\s+-->\s+(\d{2}):(\d{2}):(\d{2}),\d*\s*$]) {
+	my $first_h = $1;
+	my $first_m = $2;
+	my $first_s = $3;
+	my $second_h = $4;
+	my $second_m = $5;
+	my $second_s = $6;
+
+	$first_m += $minutes if defined $minutes;
+	$second_m += $minutes if defined $minutes;
+	$first_s += $seconds if defined $seconds;
+	$second_s += $seconds if defined $seconds;
+
+	$first_m += &check_for_wraparound_pass_ref(\$first_s);
+	$second_m += &check_for_wraparound_pass_ref(\$second_s);
+	$first_h += &check_for_wraparound_pass_ref(\$first_m);
+	$second_h += &check_for_wraparound_pass_ref(\$second_m);
+
+	$_ =~ s|^\d\d:\d\d:\d\d(,\d*\s+-->\s+)\d{2}:\d{2}:\d{2}(,\d*\s*)$|$first_h:$first_m:$first_s$1$second_h:$second_m:$second_s$2|;
+	$_ =~ s|:(\d)([:,])|:0$1$2|g;
+	$_ =~ s|^(\d)([:,])|0$1$2|;
+	print $_;
+    }
+    else {
+	print;
+    }
+}
+
