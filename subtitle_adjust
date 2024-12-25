@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # a program to adjust subtitle timing in .srt files <== 12/23/24 19:50:42 # 
+use File::Temp qw(tempfile tempdir);
 use feature qw(say);
 use feature qw(signatures);
 no warnings qw(experimental::signatures);
@@ -7,9 +8,11 @@ use feature 'state';
 use strict;
 use warnings;
 
+# variables <== 12/24/24 22:08:35 # 
 my $minutes = undef;
 my $seconds = undef;
 
+# a function for handling time wraparound <== 12/24/24 22:08:30 # 
 sub check_for_wraparound_pass_ref ($n_ref) {
     if ($$n_ref < 0) {
 	$$n_ref = 60 + $$n_ref;
@@ -22,6 +25,7 @@ sub check_for_wraparound_pass_ref ($n_ref) {
     return 0;
 }
 
+# processing cli flags <== 12/24/24 22:08:12 # 
 while (($_ = shift @ARGV) =~ m|^--?[a-zA-Z]+|) {
     if (m/^-h$/ || m/^--help$/i) {
 	say qq|USAGE:\t[FLAGS [-msh]] [+-OFFSET_IN_SECS] SUBTITLEFILE|;
@@ -53,11 +57,29 @@ else {
     unshift @ARGV, $_;
 }
 
+# limiting cli input to reasonable size <== 12/24/24 22:09:02 # 
 die "Error: 60+ seconds. Use minutes...\n\t" if (defined $seconds and abs($seconds) > 59);
 die "Error: 60+ minutes. Wtf...\n\t" if (defined $minutes and abs($minutes) > 59);
 
-while(<>) {
-    if (defined and m[^(\d\d):(\d\d):(\d\d),\d*\s+-->\s+(\d{2}):(\d{2}):(\d{2}),\d*\s*$]) {
+# getting a tempfile <== 12/24/24 22:07:38 # 
+my ($temp_fh) = tempfile();
+
+# eliminating pesky carriage returns in source so as not to muck paragraph mode <== 12/24/24 22:06:57 # 
+while (<>) {
+    s/\r//g;
+    print $temp_fh $_;
+}
+
+# we will read from the temp file we just wrote to <== 12/24/24 22:07:23 # 
+seek $temp_fh, 0, 0;
+
+# paragraph mode <== 12/24/24 22:07:27 # 
+$/ = "";
+
+# main <== 12/24/24 22:08:00 # 
+while($_ = <$temp_fh>) {
+    if (defined and m[^(\d\d):(\d\d):(\d\d),\d*\s+-->\s+(\d{2}):(\d{2}):(\d{2}),\d*\s*$]m) {
+	next if (m/anoxmous/i || m[(https?:(//)?)?(www.)\S+.(com|org|net)]i);
 	my $first_h = $1;
 	my $first_m = $2;
 	my $first_s = $3;
@@ -75,13 +97,10 @@ while(<>) {
 	$first_h += &check_for_wraparound_pass_ref(\$first_m);
 	$second_h += &check_for_wraparound_pass_ref(\$second_m);
 
-	$_ =~ s|^\d\d:\d\d:\d\d(,\d*\s+-->\s+)\d{2}:\d{2}:\d{2}(,\d*\s*)$|$first_h:$first_m:$first_s$1$second_h:$second_m:$second_s$2|;
+	$_ =~ s|^\d\d:\d\d:\d\d(,\d*\s+-->\s+)\d{2}:\d{2}:\d{2}(,\d*\s*)$|$first_h:$first_m:$first_s$1$second_h:$second_m:$second_s$2|m;
 	$_ =~ s|:(\d)(?=[:,])|:0$1|g;
 	$_ =~ s|^(\d):|0$1:|;
 	print;
-    }
-    elsif (m/anoxmous/i || m[(https?:(//)?)?(www.)\S+.(com|org|net)]i) {
-	# do nothing
     }
     else {
 	print;
