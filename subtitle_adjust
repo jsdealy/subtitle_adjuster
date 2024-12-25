@@ -56,8 +56,6 @@ else {
 die "Error: 60+ seconds. Use minutes...\n\t" if (defined $seconds and abs($seconds) > 59);
 die "Error: 60+ minutes. Wtf...\n\t" if (defined $minutes and abs($minutes) > 59);
 
-$/ = ""; # paragraph mode
-
 while(<>) {
     if (defined and m[^(\d\d):(\d\d):(\d\d),\d*\s+-->\s+(\d{2}):(\d{2}):(\d{2}),\d*\s*$]) {
 	my $first_h = $1;
@@ -78,11 +76,11 @@ while(<>) {
 	$second_h += &check_for_wraparound_pass_ref(\$second_m);
 
 	$_ =~ s|^\d\d:\d\d:\d\d(,\d*\s+-->\s+)\d{2}:\d{2}:\d{2}(,\d*\s*)$|$first_h:$first_m:$first_s$1$second_h:$second_m:$second_s$2|;
-	$_ =~ s|:(\d)([:,])|:0$1$2|g;
+	$_ =~ s|:(\d)(?=[:,])|:0$1|g;
 	$_ =~ s|^(\d):|0$1:|;
-	print $_;
+	print;
     }
-    elsif (m[https?:(//)?(www.)\w+.(com)]i || m/anoxmous/i) {
+    elsif (m/anoxmous/i || m[(https?:(//)?)?(www.)\S+.(com|org|net)]i) {
 	# do nothing
     }
     else {
